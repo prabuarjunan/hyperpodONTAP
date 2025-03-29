@@ -1,112 +1,61 @@
-# AWS SageMaker HyperPod with FSx for ONTAP
+# AWS SageMaker HyperPod with Existing FSx for ONTAP
 
-This repository contains instructions and scripts for creating an AWS SageMaker HyperPod cluster with FSx for ONTAP storage integration.
+This repository documents how to create an AWS SageMaker HyperPod cluster that connects to an existing FSx for ONTAP file system.
 
 ## Prerequisites
 
 - AWS CLI installed and configured
-- Appropriate IAM permissions to create SageMaker HyperPod clusters and FSx file systems
-- An Amazon S3 bucket to store the lifecycle configuration scripts
+- Appropriate IAM permissions to create SageMaker HyperPod clusters
+- An existing FSx for ONTAP file system
+- An Amazon S3 bucket to store the lifecycle configuration script
 
 ## Architecture Overview
 
-The solution creates a SageMaker HyperPod cluster with:
-- Compute instances for ML workloads
-- FSx for ONTAP for high-performance, scalable storage
-- VPC endpoints for secure network connectivity
+This solution connects a SageMaker HyperPod cluster to:
+- An existing FSx for ONTAP file system
+- Using the same VPC and subnet as the FSx for ONTAP
+- With VPC endpoints for secure network connectivity
 
 ## Setup Instructions
 
-### 1. Prepare Your VPC
+### 1. Configure VPC Endpoints (Critical)
 
-Ensure your VPC has the necessary endpoints for HyperPod to function properly:
+To ensure connectivity to your HyperPod cluster, you must create these VPC endpoints in the same VPC as your FSx for ONTAP:
 
 ```bash
-# Create SSM endpoints (required for SSH connectivity)
-aws ec2 create-vpc-endpoint --vpc-id YOUR_VPC_ID \
-  --service-name com.amazonaws.YOUR_REGION.ssm \
-  --vpc-endpoint-type Interface \
-  --subnet-ids YOUR_PRIVATE_SUBNET_IDS \
-  --security-group-ids YOUR_SECURITY_GROUP_ID
-
-# Create SSM messages endpoint
-aws ec2 create-vpc-endpoint --vpc-id YOUR_VPC_ID \
-  --service-name com.amazonaws.YOUR_REGION.ssmmessages \
-  --vpc-endpoint-type Interface \
-  --subnet-ids YOUR_PRIVATE_SUBNET_IDS \
-  --security-group-ids YOUR_SECURITY_GROUP_ID
-
-# Create S3 endpoint (required for script access)
-aws ec2 create-vpc-endpoint --vpc-id YOUR_VPC_ID \
+# Create an S3 Gateway endpoint for script access
+aws ec2 create-vpc-endpoint \
+  --vpc-id YOUR_VPC_ID \
   --service-name com.amazonaws.YOUR_REGION.s3 \
   --vpc-endpoint-type Gateway \
   --route-table-ids YOUR_ROUTE_TABLE_ID
+
+# Create an SSM Messages Interface endpoint for session connectivity
+aws ec2 create-vpc-endpoint \
+  --vpc-id YOUR_VPC_ID \
+  --service-name com.amazonaws.YOUR_REGION.ssmmessages \
+  --vpc-endpoint-type Interface \
+  --subnet-ids YOUR_SUBNET_IDS \
+  --security-group-ids YOUR_SECURITY_GROUP_ID
 ```
 
-### 2. Create FSx for ONTAP File System
+> **Note:** Without these VPC endpoints, you won't be able to connect to your HyperPod cluster or access your S3-hosted scripts.
 
-```bash
-aws fsx create-file-system \
-  --file-system-type ONTAP \
-  --ontap-configuration '{
-    "DeploymentType": "MULTI_AZ_1",
-    "AutomaticBackupRetentionDays": 7,
-    "DailyAutomaticBackupStartTime": "01:00",
-    "WeeklyMaintenanceStartTime": "7:01:00",
-    "ThroughputCapacity": 512,
-    "PreferredSubnetId": "SUBNET_ID_1",
-    "RouteTableIds": ["ROUTE_TABLE_ID"],
-    "FsxAdminPassword": "PASSWORD"
-  }' \
-  --subnet-ids SUBNET_ID_1 SUBNET_ID_2 \
-  --security-group-ids SECURITY_GROUP_ID \
-  --storage-capacity 1024 \
-  --tags Key=Name,Value=HyperPod-ONTAP
-```
-
-Note the file system ID that's returned.
-
-### 3. Create FSx for ONTAP SVM and Volume
-
-```bash
-# Create SVM
-aws fsx create-storage-virtual-machine \
-  --file-system-id YOUR_FSX_ID \
-  --name hyperpod-svm \
-  --root-volume-security-style UNIX
-
-# Create volume
-aws fsx create-volume \
-  --volume-type ONTAP \
-  --name hyperpod-vol \
-  --ontap-configuration '{
-    "JunctionPath": "/hyperpod",
-    "SizeInMegabytes": 102400,
-    "StorageVirtualMachineId": "YOUR_SVM_ID",
-    "StorageEfficiencyEnabled": true,
-    "TieringPolicy": {
-      "Name": "AUTO",
-      "CoolingPeriod": 31
-    }
-  }'
-```
-
-### 4. Prepare FSx Mount Script
+### 2. Prepare FSx Mount Script
 
 Create a file named `fsx-ontap-mount.sh` with the following content:
 
 ```bash
 #!/bin/bash
 
-# Mount FSx for ONTAP to HyperPod cluster
-# This script runs as part of the HyperPod lifecycle
+# Mount existing FSx for ONTAP to HyperPod cluster
 
 set -ex
 
-# Configuration
-FSX_DNS_NAME="YOUR_FSX_DNS_NAME"  # e.g., svm-abcdef01234567890.fs-abcdef01234567890.fsx.us-west-2.amazonaws.com
+# Configuration - Update these values for your environment
+FSX_DNS_NAME="YOUR_SVM_DNS_NAME"  # e.g., svm-123456789.fs-123456789.fsx.us-east-1.amazonaws.com
 MOUNT_POINT="/fsx"
-EXPORT_PATH="/hyperpod"
+EXPORT_PATH="/your_volume_junction_path"
 
 # Create mount point if it doesn't exist
 mkdir -p $MOUNT_POINT
@@ -128,13 +77,13 @@ chmod 777 $MOUNT_POINT
 df -h | grep $MOUNT_POINT
 ```
 
-### 5. Upload Script to S3
+### 3. Upload Script to S3
 
 ```bash
 aws s3 cp fsx-ontap-mount.sh s3://YOUR_BUCKET_NAME/scripts/
 ```
 
-### 6. Create HyperPod Cluster
+### 4. Create HyperPod Cluster Using Existing FSx VPC and Subnet
 
 ```bash
 aws sagemaker create-cluster \
@@ -164,56 +113,18 @@ aws sagemaker create-cluster \
     }
   ]' \
   --virtual-private-cloud '{
-    "vpcId": "YOUR_VPC_ID",
-    "subnetIds": ["SUBNET_ID_1", "SUBNET_ID_2"],
-    "securityGroupIds": ["SG_ID"]
+    "vpcId": "YOUR_FSX_VPC_ID",
+    "subnetIds": ["YOUR_FSX_SUBNET_ID"],
+    "securityGroupIds": ["YOUR_SECURITY_GROUP_ID"]
   }'
 ```
 
+> **Important:** Use the same VPC, subnet(s), and security groups as your FSx for ONTAP file system.
+
 ## Connecting to Your HyperPod Cluster
 
-Use the provided `easy-ssh.sh` script to connect to your HyperPod cluster:
+Once the VPC endpoints are properly configured, you can connect directly using:
 
 ```bash
-./easy-ssh.sh -p AWS_PROFILE -r REGION YOUR_CLUSTER_NAME
-```
-
-If you encounter connection issues, make sure:
-1. Your VPC has the necessary endpoints (SSM, SSM Messages)
-2. Your IAM role has permission to use SSM
-3. The instance is running and the SSM agent is active
-
-## Verifying FSx Mount
-
-After connecting to the cluster, verify that FSx is correctly mounted:
-
-```bash
-df -h | grep fsx
-```
-
-You should see output showing your FSx filesystem mounted at `/fsx`.
-
-## Troubleshooting
-
-### Common Issues:
-
-1. **SSM Connection Failures**
-   - Ensure VPC endpoints for SSM and SSM Messages are created
-   - Check IAM permissions for SSM
-   - Verify the instance is running and has network connectivity
-
-2. **FSx Mount Issues**
-   - Check the NFS export policy on the FSx for ONTAP SVM
-   - Verify network connectivity between the HyperPod instances and FSx
-   - Check CloudWatch logs for mount script execution errors
-
-3. **Performance Issues**
-   - Adjust the NFS mount options for optimal performance
-   - Consider FSx for ONTAP performance capacity adjustments
-   - Verify network bandwidth between compute instances and FSx
-
-## Additional Resources
-
-- [AWS SageMaker HyperPod Documentation](https://docs.aws.amazon.com/sagemaker/latest/dg/hyperpod.html)
-- [FSx for ONTAP User Guide](https://docs.aws.amazon.com/fsx/latest/ONTAPGuide/what-is-fsx-ontap.html)
-- [Optimizing NFS Performance with FSx for ONTAP](https://aws.amazon.com/blogs/storage/optimize-nfs-performance-with-fsx-for-ontap/)
+aws ssm start-session \
+  --target s
