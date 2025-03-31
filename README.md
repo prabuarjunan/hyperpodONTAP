@@ -57,7 +57,7 @@ aws s3 cp fsx-ontap-mount.sh s3://YOUR_BUCKET_NAME/scripts/
 
 ### 4. Create HyperPod Cluster Using Existing FSx VPC and Subnet
 
-
+![Hyperpod Cluster creation in console](https://github.com/prabuarjunan/hyperpodONTAP/blob/main/Screenshot.png)
 
 > **Important:** Use the same VPC, subnet(s), and security groups as your FSx for ONTAP file system.
 
