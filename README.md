@@ -46,7 +46,7 @@ aws ec2 create-vpc-endpoint \
 Create a file named `fsx-ontap-mount.sh` with the following content, 
 The shell script can be found at the following location:
 
-[fsx-ontap-mount.sh]([scripts/example.py](https://github.com/prabuarjunan/hyperpodONTAP/blob/main/fsx-ontap-mount.sh))
+[fsx-ontap-mount.sh](https://github.com/prabuarjunan/hyperpodONTAP/blob/main/fsx-ontap-mount.sh)
 
 
 ### 3. Upload Script to S3
