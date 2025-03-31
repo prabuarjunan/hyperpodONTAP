@@ -9,7 +9,7 @@ exec > >(tee /var/log/fsx-ontap-mount.log) 2>&1
 echo "Starting FSx for NetApp ONTAP mount process at $(date)"
 
 # Configuration variables
-FSX_DNS_NAME="svm-04d36d2b53cf2705f.fs-0cd1ef29e47ff068a.fsx.us-east-1.amazonaws.com"
+FSX_DNS_NAME="YOUR_SVM_DNS_NAME"  # e.g., svm-123456789.fs-123456789.fsx.us-east-1.amazonaws.com
 VOLUME_JUNCTION_PATH="/hyperpod"
 MOUNT_POINT="/mnt/fsx-ontap"
 NFS_OPTIONS="rw,hard,rsize=1048576,wsize=1048576,timeo=600,retrans=2,noresvport"
