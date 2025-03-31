@@ -57,39 +57,7 @@ aws s3 cp fsx-ontap-mount.sh s3://YOUR_BUCKET_NAME/scripts/
 
 ### 4. Create HyperPod Cluster Using Existing FSx VPC and Subnet
 
-```bash
-aws sagemaker create-cluster \
-  --cluster-name YOUR_CLUSTER_NAME \
-  --instance-groups '[
-    {
-      "instanceGroupName": "controller-machine",
-      "instanceType": "ml.c5.4xlarge",
-      "instanceCount": 1,
-      "lifecycleConfig": {
-        "sourceS3Uri": "s3://YOUR_BUCKET_NAME/scripts/fsx-ontap-mount.sh",
-        "onStart": {
-          "scriptName": "fsx-ontap-mount.sh"
-        }
-      }
-    },
-    {
-      "instanceGroupName": "ex2-worker-group",
-      "instanceType": "ml.p4d.24xlarge",
-      "instanceCount": 2,
-      "lifecycleConfig": {
-        "sourceS3Uri": "s3://YOUR_BUCKET_NAME/scripts/fsx-ontap-mount.sh",
-        "onStart": {
-          "scriptName": "fsx-ontap-mount.sh"
-        }
-      }
-    }
-  ]' \
-  --virtual-private-cloud '{
-    "vpcId": "YOUR_FSX_VPC_ID",
-    "subnetIds": ["YOUR_FSX_SUBNET_ID"],
-    "securityGroupIds": ["YOUR_SECURITY_GROUP_ID"]
-  }'
-```
+
 
 > **Important:** Use the same VPC, subnet(s), and security groups as your FSx for ONTAP file system.
 
