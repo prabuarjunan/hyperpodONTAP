@@ -43,39 +43,11 @@ aws ec2 create-vpc-endpoint \
 
 ### 2. Prepare FSx Mount Script
 
-Create a file named `fsx-ontap-mount.sh` with the following content:
+Create a file named `fsx-ontap-mount.sh` with the following content, 
+The shell script can be found at the following location:
 
-```bash
-#!/bin/bash
+[fsx-ontap-mount.sh]([scripts/example.py](https://github.com/prabuarjunan/hyperpodONTAP/blob/main/fsx-ontap-mount.sh))
 
-# Mount existing FSx for ONTAP to HyperPod cluster
-
-set -ex
-
-# Configuration - Update these values for your environment
-FSX_DNS_NAME="YOUR_SVM_DNS_NAME"  # e.g., svm-123456789.fs-123456789.fsx.us-east-1.amazonaws.com
-MOUNT_POINT="/fsx"
-EXPORT_PATH="/your_volume_junction_path"
-
-# Create mount point if it doesn't exist
-mkdir -p $MOUNT_POINT
-
-# Install NFS client if needed
-apt-get update
-apt-get install -y nfs-common
-
-# Mount the FSx for ONTAP filesystem
-mount -t nfs -o nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2 ${FSX_DNS_NAME}:${EXPORT_PATH} ${MOUNT_POINT}
-
-# Add to fstab for persistence across reboots
-echo "${FSX_DNS_NAME}:${EXPORT_PATH} ${MOUNT_POINT} nfs nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2 0 0" >> /etc/fstab
-
-# Set appropriate permissions
-chmod 777 $MOUNT_POINT
-
-# Verify mount
-df -h | grep $MOUNT_POINT
-```
 
 ### 3. Upload Script to S3
 
