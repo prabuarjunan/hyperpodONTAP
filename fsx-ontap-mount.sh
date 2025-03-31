@@ -1,5 +1,3 @@
-I'll create a simplified version of your FSx mount script that reduces points of failure and adds timeouts to prevent hanging. Here's a streamlined version:
-
 ```bash
 #!/bin/bash
 # Simplified FSx for NetApp ONTAP Mount Script for SageMaker Hyperpod
